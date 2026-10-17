@@ -1,6 +1,6 @@
 package io.github.pranit.page;
 
-import io.github.pranit.page.service.Pagination;
+import io.github.pranit.page.service.Page;
 import io.github.pranit.page.wrapper.PageResponse;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -9,7 +9,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -29,13 +28,12 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
-class PaginationMockTest {
+class PageMockTest {
 
     @Mock
     private JpaRepository<TestEntity, Long> repository;
@@ -55,7 +53,7 @@ class PaginationMockTest {
         @Test
         @DisplayName("Private constructor should throw UnsupportedOperationException via reflection")
         void privateConstructorShouldThrowException() throws Exception {
-            Constructor<Pagination> constructor = Pagination.class.getDeclaredConstructor();
+            Constructor<Page> constructor = Page.class.getDeclaredConstructor();
             constructor.setAccessible(true);
             assertThatThrownBy(constructor::newInstance)
                     .isInstanceOf(InvocationTargetException.class)
@@ -66,15 +64,15 @@ class PaginationMockTest {
         @Test
         @DisplayName("Pagination constants should have expected values")
         void constantsShouldHaveExpectedValues() {
-            assertThat(Pagination.DEFAULT_PAGE_SIZE).isEqualTo(10);
-            assertThat(Pagination.MIN_PAGE_SIZE).isEqualTo(1);
-            assertThat(Pagination.MAX_PAGE_SIZE).isEqualTo(100);
+            assertThat(Page.DEFAULT_PAGE_SIZE).isEqualTo(10);
+            assertThat(Page.MIN_PAGE_SIZE).isEqualTo(1);
+            assertThat(Page.MAX_PAGE_SIZE).isEqualTo(100);
         }
     }
 
     @Nested
     @DisplayName("Repository-based Pagination")
-    class RepositoryPaginationTests {
+    class RepositoryPageTests {
 
         @Test
         @DisplayName("Should paginate and map content when pageable and sort are valid")
@@ -83,10 +81,10 @@ class PaginationMockTest {
                     new TestEntity(1L, "Alpha", "2026-01-01"),
                     new TestEntity(2L, "Beta", "2026-01-02")
             );
-            Page<TestEntity> entityPage = new PageImpl<>(entities, PageRequest.of(0, 10), 2);
+            org.springframework.data.domain.Page<TestEntity> entityPage = new PageImpl<>(entities, PageRequest.of(0, 10), 2);
             when(repository.findAll(any(Pageable.class))).thenReturn(entityPage);
             Pageable pageable = PageRequest.of(0, 10, Sort.by(Sort.Direction.DESC, "createdAt"));
-            PageResponse<TestDto> response = Pagination.paginate(
+            PageResponse<TestDto> response = Page.paginate(
                     repository, pageable, Set.of("id", "name", "createdAt"),
                     entity -> new TestDto(entity.id(), entity.name()));
             assertThat(response).isNotNull();
@@ -105,11 +103,11 @@ class PaginationMockTest {
         @Test
         @DisplayName("Should support case-insensitive sort property matching and resolve to canonical property")
         void shouldSupportCaseInsensitiveSortMatching() {
-            Page<TestEntity> emptyPage = new PageImpl<>(Collections.emptyList(), PageRequest.of(0, 10), 0);
+            org.springframework.data.domain.Page<TestEntity> emptyPage = new PageImpl<>(Collections.emptyList(), PageRequest.of(0, 10), 0);
             ArgumentCaptor<Pageable> captor = ArgumentCaptor.forClass(Pageable.class);
             when(repository.findAll(captor.capture())).thenReturn(emptyPage);
             Pageable pageable = PageRequest.of(0, 10, Sort.by("createdat"));
-            Pagination.paginate(repository, pageable, List.of("createdAt"), TestEntity::id);
+            Page.paginate(repository, pageable, List.of("createdAt"), TestEntity::id);
             Pageable captured = captor.getValue();
             Sort.Order order = captured.getSort().getOrderFor("createdAt");
             assertThat(order).isNotNull();
@@ -119,13 +117,13 @@ class PaginationMockTest {
         @Test
         @DisplayName("Should support multi-property sorting")
         void shouldSupportMultiPropertySorting() {
-            Page<TestEntity> emptyPage = new PageImpl<>(Collections.emptyList(), PageRequest.of(0, 10), 0);
+            org.springframework.data.domain.Page<TestEntity> emptyPage = new PageImpl<>(Collections.emptyList(), PageRequest.of(0, 10), 0);
             ArgumentCaptor<Pageable> captor = ArgumentCaptor.forClass(Pageable.class);
             when(repository.findAll(captor.capture())).thenReturn(emptyPage);
             Sort multiSort = Sort.by(Sort.Direction.ASC, "name")
                     .and(Sort.by(Sort.Direction.DESC, "createdat"));
             Pageable pageable = PageRequest.of(0, 10, multiSort);
-            Pagination.paginate(repository, pageable, List.of("name", "createdAt"), TestEntity::id);
+            Page.paginate(repository, pageable, List.of("name", "createdAt"), TestEntity::id);
             Pageable captured = captor.getValue();
             assertThat(captured.getSort().getOrderFor("name")).isNotNull();
             assertThat(Objects.requireNonNull(captured.getSort().getOrderFor("name"))
@@ -139,9 +137,9 @@ class PaginationMockTest {
         @DisplayName("Should paginate without mapper overload")
         void shouldPaginateWithoutMapper() {
             List<TestEntity> entities = List.of(new TestEntity(1L, "Alpha", "2026-01-01"));
-            Page<TestEntity> entityPage = new PageImpl<>(entities, PageRequest.of(0, 10), 1);
+            org.springframework.data.domain.Page<TestEntity> entityPage = new PageImpl<>(entities, PageRequest.of(0, 10), 1);
             when(repository.findAll(any(Pageable.class))).thenReturn(entityPage);
-            PageResponse<TestEntity> response = Pagination.paginate(
+            PageResponse<TestEntity> response = Page.paginate(
                     repository, PageRequest.of(0, 10), List.of("id"));
             assertThat(response.contents()).containsExactlyElementsOf(entities);
         }
@@ -149,35 +147,35 @@ class PaginationMockTest {
         @Test
         @DisplayName("Should fallback to default page and size when pageable is null")
         void shouldFallbackWhenPageableIsNull() {
-            Page<TestEntity> emptyPage = new PageImpl<>(Collections.emptyList(), PageRequest.of(0, 10), 0);
+            org.springframework.data.domain.Page<TestEntity> emptyPage = new PageImpl<>(Collections.emptyList(), PageRequest.of(0, 10), 0);
             ArgumentCaptor<Pageable> captor = ArgumentCaptor.forClass(Pageable.class);
             when(repository.findAll(captor.capture())).thenReturn(emptyPage);
-            Pagination.paginate(repository, null, List.of("id"), TestEntity::id);
+            Page.paginate(repository, null, List.of("id"), TestEntity::id);
             Pageable captured = captor.getValue();
             assertThat(captured.getPageNumber()).isZero();
-            assertThat(captured.getPageSize()).isEqualTo(Pagination.DEFAULT_PAGE_SIZE);
+            assertThat(captured.getPageSize()).isEqualTo(Page.DEFAULT_PAGE_SIZE);
             assertThat(captured.getSort().isUnsorted()).isTrue();
         }
 
         @Test
         @DisplayName("Should fallback to default page and size when pageable is unpaged")
         void shouldFallbackWhenPageableIsUnpaged() {
-            Page<TestEntity> emptyPage = new PageImpl<>(Collections.emptyList(), PageRequest.of(0, 10), 0);
+            org.springframework.data.domain.Page<TestEntity> emptyPage = new PageImpl<>(Collections.emptyList(), PageRequest.of(0, 10), 0);
             ArgumentCaptor<Pageable> captor = ArgumentCaptor.forClass(Pageable.class);
             when(repository.findAll(captor.capture())).thenReturn(emptyPage);
-            Pagination.paginate(repository, Pageable.unpaged(), List.of("id"), TestEntity::id);
+            Page.paginate(repository, Pageable.unpaged(), List.of("id"), TestEntity::id);
             Pageable captured = captor.getValue();
             assertThat(captured.getPageNumber()).isZero();
-            assertThat(captured.getPageSize()).isEqualTo(Pagination.DEFAULT_PAGE_SIZE);
+            assertThat(captured.getPageSize()).isEqualTo(Page.DEFAULT_PAGE_SIZE);
             assertThat(captured.getSort().isUnsorted()).isTrue();
         }
 
         @Test
         @DisplayName("Should allow unsorted queries even if allowed sort properties are empty")
         void shouldAllowUnsortedQueriesWhenAllowedSortEmpty() {
-            Page<TestEntity> emptyPage = new PageImpl<>(Collections.emptyList(), PageRequest.of(0, 10), 0);
+            org.springframework.data.domain.Page<TestEntity> emptyPage = new PageImpl<>(Collections.emptyList(), PageRequest.of(0, 10), 0);
             when(repository.findAll(any(Pageable.class))).thenReturn(emptyPage);
-            PageResponse<Long> response = Pagination.paginate(
+            PageResponse<Long> response = Page.paginate(
                     repository, PageRequest.of(0, 10, Sort.unsorted()),
                     Collections.emptyList(), TestEntity::id);
             assertThat(response).isNotNull();
@@ -186,9 +184,9 @@ class PaginationMockTest {
         @Test
         @DisplayName("Should allow unsorted queries even if allowed sort properties are null")
         void shouldAllowUnsortedQueriesWhenAllowedSortNull() {
-            Page<TestEntity> emptyPage = new PageImpl<>(Collections.emptyList(), PageRequest.of(0, 10), 0);
+            org.springframework.data.domain.Page<TestEntity> emptyPage = new PageImpl<>(Collections.emptyList(), PageRequest.of(0, 10), 0);
             when(repository.findAll(any(Pageable.class))).thenReturn(emptyPage);
-            PageResponse<Long> response = Pagination.paginate(
+            PageResponse<Long> response = Page.paginate(
                     repository, PageRequest.of(0, 10, Sort.unsorted()),
                     null, TestEntity::id);
             assertThat(response).isNotNull();
@@ -198,7 +196,7 @@ class PaginationMockTest {
         @DisplayName("Should throw exception when sorting is requested but allowed sort properties are empty")
         void shouldThrowWhenSortRequestedWithEmptyAllowed() {
             Pageable pageable = PageRequest.of(0, 10, Sort.by("id"));
-            assertThatThrownBy(() -> Pagination.paginate(repository, pageable, Collections.emptyList(), TestEntity::id))
+            assertThatThrownBy(() -> Page.paginate(repository, pageable, Collections.emptyList(), TestEntity::id))
                     .isInstanceOf(IllegalArgumentException.class)
                     .hasMessage("Sorting is not supported for this query");
         }
@@ -207,7 +205,7 @@ class PaginationMockTest {
         @DisplayName("Should throw exception when sorting is requested but allowed sort properties are null")
         void shouldThrowWhenSortRequestedWithNullAllowed() {
             Pageable pageable = PageRequest.of(0, 10, Sort.by("id"));
-            assertThatThrownBy(() -> Pagination.paginate(repository, pageable, null, TestEntity::id))
+            assertThatThrownBy(() -> Page.paginate(repository, pageable, null, TestEntity::id))
                     .isInstanceOf(IllegalArgumentException.class)
                     .hasMessage("Sorting is not supported for this query");
         }
@@ -216,7 +214,7 @@ class PaginationMockTest {
         @DisplayName("Should reject unauthorized sort property")
         void shouldRejectUnauthorizedSortProperty() {
             Pageable pageable = PageRequest.of(0, 10, Sort.by("secretField"));
-            assertThatThrownBy(() -> Pagination.paginate(repository, pageable, Set.of("id", "name"), TestEntity::id))
+            assertThatThrownBy(() -> Page.paginate(repository, pageable, Set.of("id", "name"), TestEntity::id))
                     .isInstanceOf(IllegalArgumentException.class)
                     .hasMessage("Unsupported sort property: secretField");
         }
@@ -225,7 +223,7 @@ class PaginationMockTest {
         @DisplayName("Should reject blank or null sort property names in allowedSortProperties")
         void shouldRejectBlankAllowedSortProperty() {
             Pageable pageable = PageRequest.of(0, 10);
-            assertThatThrownBy(() -> Pagination.paginate(repository, pageable, List.of("id", "  "), TestEntity::id))
+            assertThatThrownBy(() -> Page.paginate(repository, pageable, List.of("id", "  "), TestEntity::id))
                     .isInstanceOf(IllegalArgumentException.class)
                     .hasMessage("Allowed sort properties must not be null or blank");
         }
@@ -234,7 +232,7 @@ class PaginationMockTest {
         @DisplayName("Should reject page size exceeding maximum limit")
         void shouldRejectExcessivePageSize() {
             Pageable pageable = PageRequest.of(0, 101);
-            assertThatThrownBy(() -> Pagination.paginate(repository, pageable, List.of("id"), TestEntity::id))
+            assertThatThrownBy(() -> Page.paginate(repository, pageable, List.of("id"), TestEntity::id))
                     .isInstanceOf(IllegalArgumentException.class)
                     .hasMessage("Page size must be between 1 and 100");
         }
@@ -246,7 +244,7 @@ class PaginationMockTest {
             when(mockPageable.isUnpaged()).thenReturn(false);
             when(mockPageable.getPageNumber()).thenReturn(0);
             when(mockPageable.getPageSize()).thenReturn(0);
-            assertThatThrownBy(() -> Pagination.paginate(repository, mockPageable, List.of("id"), TestEntity::id))
+            assertThatThrownBy(() -> Page.paginate(repository, mockPageable, List.of("id"), TestEntity::id))
                     .isInstanceOf(IllegalArgumentException.class)
                     .hasMessage("Page size must be between 1 and 100");
         }
@@ -257,7 +255,7 @@ class PaginationMockTest {
             Pageable mockPageable = mock(Pageable.class);
             when(mockPageable.isUnpaged()).thenReturn(false);
             when(mockPageable.getPageNumber()).thenReturn(-1);
-            assertThatThrownBy(() -> Pagination.paginate(repository, mockPageable, List.of("id"), TestEntity::id))
+            assertThatThrownBy(() -> Page.paginate(repository, mockPageable, List.of("id"), TestEntity::id))
                     .isInstanceOf(IllegalArgumentException.class)
                     .hasMessage("Page number must be greater than or equal to 0");
         }
@@ -266,7 +264,7 @@ class PaginationMockTest {
         @DisplayName("Should reject null repository")
         void shouldRejectNullRepository() {
             Pageable pageable = PageRequest.of(0, 10);
-            assertThatThrownBy(() -> Pagination.paginate(null, pageable, List.of("id"), TestEntity::id))
+            assertThatThrownBy(() -> Page.paginate(null, pageable, List.of("id"), TestEntity::id))
                     .isInstanceOf(IllegalArgumentException.class)
                     .hasMessage("Repository must not be null");
         }
@@ -275,7 +273,7 @@ class PaginationMockTest {
         @DisplayName("Should reject null mapper")
         void shouldRejectNullMapper() {
             Pageable pageable = PageRequest.of(0, 10);
-            assertThatThrownBy(() -> Pagination.paginate(repository, pageable, List.of("id"), null))
+            assertThatThrownBy(() -> Page.paginate(repository, pageable, List.of("id"), null))
                     .isInstanceOf(IllegalArgumentException.class)
                     .hasMessage("Mapper must not be null");
         }
@@ -285,7 +283,7 @@ class PaginationMockTest {
         void shouldRejectNullElementInAllowedSortProperties() {
             Pageable pageable = PageRequest.of(0, 10);
             List<String> allowedWithNull = Collections.singletonList(null);
-            assertThatThrownBy(() -> Pagination.paginate(repository, pageable, allowedWithNull, TestEntity::id))
+            assertThatThrownBy(() -> Page.paginate(repository, pageable, allowedWithNull, TestEntity::id))
                     .isInstanceOf(IllegalArgumentException.class)
                     .hasMessage("Allowed sort properties must not be null or blank");
         }
@@ -293,7 +291,7 @@ class PaginationMockTest {
         @Test
         @DisplayName("Should handle null sort from Pageable gracefully")
         void shouldHandleNullSortGracefully() {
-            Page<TestEntity> emptyPage = new PageImpl<>(Collections.emptyList(), PageRequest.of(0, 10), 0);
+            org.springframework.data.domain.Page<TestEntity> emptyPage = new PageImpl<>(Collections.emptyList(), PageRequest.of(0, 10), 0);
             when(repository.findAll(any(Pageable.class))).thenReturn(emptyPage);
 
             Pageable mockPageable = mock(Pageable.class);
@@ -302,19 +300,19 @@ class PaginationMockTest {
             when(mockPageable.getPageSize()).thenReturn(10);
             when(mockPageable.getSort()).thenReturn(null);
 
-            PageResponse<Long> response = Pagination.paginate(repository, mockPageable, List.of("id"), TestEntity::id);
+            PageResponse<Long> response = Page.paginate(repository, mockPageable, List.of("id"), TestEntity::id);
             assertThat(response).isNotNull();
         }
 
         @Test
         @DisplayName("Should trim sort property name and resolve correctly")
         void shouldTrimSortPropertyName() {
-            Page<TestEntity> emptyPage = new PageImpl<>(Collections.emptyList(), PageRequest.of(0, 10), 0);
+            org.springframework.data.domain.Page<TestEntity> emptyPage = new PageImpl<>(Collections.emptyList(), PageRequest.of(0, 10), 0);
             ArgumentCaptor<Pageable> captor = ArgumentCaptor.forClass(Pageable.class);
             when(repository.findAll(captor.capture())).thenReturn(emptyPage);
 
             Pageable pageable = PageRequest.of(0, 10, Sort.by("  name  "));
-            Pagination.paginate(repository, pageable, List.of("name"), TestEntity::id);
+            Page.paginate(repository, pageable, List.of("name"), TestEntity::id);
 
             Pageable captured = captor.getValue();
             assertThat(captured.getSort().getOrderFor("name")).isNotNull();
@@ -327,7 +325,7 @@ class PaginationMockTest {
             Sort.Order mockOrder = mock(Sort.Order.class);
             when(mockOrder.getProperty()).thenReturn("   ");
             Pageable pageable = PageRequest.of(0, 10, Sort.by(List.of(mockOrder)));
-            assertThatThrownBy(() -> Pagination.paginate(repository, pageable, List.of("name"), TestEntity::id))
+            assertThatThrownBy(() -> Page.paginate(repository, pageable, List.of("name"), TestEntity::id))
                     .isInstanceOf(IllegalArgumentException.class)
                     .hasMessage("Sort property must not be null or blank");
         }
@@ -336,30 +334,30 @@ class PaginationMockTest {
         @DisplayName("Should accept valid boundary page sizes MIN_PAGE_SIZE and MAX_PAGE_SIZE")
         @SuppressWarnings("unchecked")
         void shouldAcceptBoundaryPageSizes() {
-            Page<TestEntity> emptyPageMin = new PageImpl<>(Collections.emptyList(), PageRequest.of(0, Pagination.MIN_PAGE_SIZE), 0);
-            Page<TestEntity> emptyPageMax = new PageImpl<>(Collections.emptyList(), PageRequest.of(0, Pagination.MAX_PAGE_SIZE), 0);
+            org.springframework.data.domain.Page<TestEntity> emptyPageMin = new PageImpl<>(Collections.emptyList(), PageRequest.of(0, Page.MIN_PAGE_SIZE), 0);
+            org.springframework.data.domain.Page<TestEntity> emptyPageMax = new PageImpl<>(Collections.emptyList(), PageRequest.of(0, Page.MAX_PAGE_SIZE), 0);
             when(repository.findAll(any(Pageable.class))).thenReturn(emptyPageMin, emptyPageMax);
 
-            PageResponse<Long> minResponse = Pagination.paginate(repository, PageRequest.of(0, Pagination.MIN_PAGE_SIZE), List.of("id"), TestEntity::id);
-            assertThat(minResponse.pageSize()).isEqualTo(Pagination.MIN_PAGE_SIZE);
+            PageResponse<Long> minResponse = Page.paginate(repository, PageRequest.of(0, Page.MIN_PAGE_SIZE), List.of("id"), TestEntity::id);
+            assertThat(minResponse.pageSize()).isEqualTo(Page.MIN_PAGE_SIZE);
 
-            PageResponse<Long> maxResponse = Pagination.paginate(repository, PageRequest.of(0, Pagination.MAX_PAGE_SIZE), List.of("id"), TestEntity::id);
-            assertThat(maxResponse.pageSize()).isEqualTo(Pagination.MAX_PAGE_SIZE);
+            PageResponse<Long> maxResponse = Page.paginate(repository, PageRequest.of(0, Page.MAX_PAGE_SIZE), List.of("id"), TestEntity::id);
+            assertThat(maxResponse.pageSize()).isEqualTo(Page.MAX_PAGE_SIZE);
         }
     }
 
     @Nested
     @DisplayName("Specification-based Pagination")
-    class SpecificationPaginationTests {
+    class SpecificationPageTests {
 
         @Test
         @DisplayName("Should support Specification with Pageable and non-null specification")
         @SuppressWarnings("unchecked")
         void shouldSupportSpecWithPageableAndNonNullSpec() {
-            Page<TestEntity> emptyPage = new PageImpl<>(Collections.emptyList(), PageRequest.of(0, 10), 0);
+            org.springframework.data.domain.Page<TestEntity> emptyPage = new PageImpl<>(Collections.emptyList(), PageRequest.of(0, 10), 0);
             Specification<TestEntity> spec = mock(Specification.class);
             when(specificationExecutor.findAll(eq(spec), any(Pageable.class))).thenReturn(emptyPage);
-            PageResponse<TestDto> response = Pagination.paginate(
+            PageResponse<TestDto> response = Page.paginate(
                     specificationExecutor, spec,
                     PageRequest.of(0, 10), List.of("id"),
                     entity -> new TestDto(entity.id(), entity.name()));
@@ -370,20 +368,20 @@ class PaginationMockTest {
         @Test
         @DisplayName("Should support Specification with Pageable and null specification")
         void shouldSupportSpecWithPageableAndNullSpec() {
-            Page<TestEntity> emptyPage = new PageImpl<>(Collections.emptyList(), PageRequest.of(0, 20), 0);
-            when(specificationExecutor.findAll(isNull(), any(Pageable.class))).thenReturn(emptyPage);
-            PageResponse<TestEntity> response = Pagination.paginate(
+            org.springframework.data.domain.Page<TestEntity> emptyPage = new PageImpl<>(Collections.emptyList(), PageRequest.of(0, 20), 0);
+            when(specificationExecutor.findAll(any(), any(Pageable.class))).thenReturn(emptyPage);
+            PageResponse<TestEntity> response = Page.paginate(
                     specificationExecutor, null, PageRequest.of(0, 20),
                     List.of("id"));
             assertThat(response).isNotNull();
-            verify(specificationExecutor).findAll(isNull(), any(Pageable.class));
+            verify(specificationExecutor).findAll(any(), any(Pageable.class));
         }
 
         @Test
         @DisplayName("Should reject null repository in specification with Pageable overload")
         void shouldRejectNullRepoInSpecWithPageable() {
             Pageable pageable = PageRequest.of(0, 10);
-            assertThatThrownBy(() -> Pagination.paginate(null, null, pageable, List.of("id"), TestEntity::id))
+            assertThatThrownBy(() -> Page.paginate(null, null, pageable, List.of("id"), TestEntity::id))
                     .isInstanceOf(IllegalArgumentException.class)
                     .hasMessage("Repository must not be null");
         }
@@ -392,7 +390,7 @@ class PaginationMockTest {
         @DisplayName("Should reject null mapper in specification with Pageable overload")
         void shouldRejectNullMapperInSpecWithPageable() {
             Pageable pageable = PageRequest.of(0, 10);
-            assertThatThrownBy(() -> Pagination.paginate(specificationExecutor, null, pageable, List.of("id"), null))
+            assertThatThrownBy(() -> Page.paginate(specificationExecutor, null, pageable, List.of("id"), null))
                     .isInstanceOf(IllegalArgumentException.class)
                     .hasMessage("Mapper must not be null");
         }
@@ -400,10 +398,10 @@ class PaginationMockTest {
         @Test
         @DisplayName("Should support primitive parameter specification overload with optional sort")
         void shouldSupportPrimitiveSpecificationParams() {
-            Page<TestEntity> emptyPage = new PageImpl<>(Collections.emptyList(), PageRequest.of(0, 15), 0);
+            org.springframework.data.domain.Page<TestEntity> emptyPage = new PageImpl<>(Collections.emptyList(), PageRequest.of(0, 15), 0);
             ArgumentCaptor<Pageable> captor = ArgumentCaptor.forClass(Pageable.class);
-            when(specificationExecutor.findAll(isNull(), captor.capture())).thenReturn(emptyPage);
-            Pagination.paginate(specificationExecutor, null, 0, 15,
+            when(specificationExecutor.findAll(any(), captor.capture())).thenReturn(emptyPage);
+            Page.paginate(specificationExecutor, null, 0, 15,
                     null, null, List.of("id", "name"));
             Pageable captured = captor.getValue();
             assertThat(captured.getPageNumber()).isZero();
@@ -415,9 +413,9 @@ class PaginationMockTest {
         @DisplayName("Should support primitive parameter specification overload without mapper")
         void shouldSupportPrimitiveSpecificationParamsWithoutMapper() {
             List<TestEntity> entities = List.of(new TestEntity(1L, "Beta", "2026-01-02"));
-            Page<TestEntity> entityPage = new PageImpl<>(entities, PageRequest.of(0, 10), 1);
-            when(specificationExecutor.findAll(isNull(), any(Pageable.class))).thenReturn(entityPage);
-            PageResponse<TestEntity> response = Pagination.paginate(
+            org.springframework.data.domain.Page<TestEntity> entityPage = new PageImpl<>(entities, PageRequest.of(0, 10), 1);
+            when(specificationExecutor.findAll(any(), any(Pageable.class))).thenReturn(entityPage);
+            PageResponse<TestEntity> response = Page.paginate(
                     specificationExecutor, null, 0, 10,
                     "id", "desc", List.of("id"));
             assertThat(response.contents()).containsExactlyElementsOf(entities);
@@ -426,10 +424,10 @@ class PaginationMockTest {
         @Test
         @DisplayName("Should default to ASC when sortBy is provided but sortDirection is omitted or blank")
         void shouldDefaultToAscWhenDirectionOmitted() {
-            Page<TestEntity> emptyPage = new PageImpl<>(Collections.emptyList(), PageRequest.of(0, 15), 0);
+            org.springframework.data.domain.Page<TestEntity> emptyPage = new PageImpl<>(Collections.emptyList(), PageRequest.of(0, 15), 0);
             ArgumentCaptor<Pageable> captor = ArgumentCaptor.forClass(Pageable.class);
-            when(specificationExecutor.findAll(isNull(), captor.capture())).thenReturn(emptyPage);
-            Pagination.paginate(
+            when(specificationExecutor.findAll(any(), captor.capture())).thenReturn(emptyPage);
+            Page.paginate(
                     specificationExecutor, null, 0, 15,
                     "name", "   ", List.of("id", "name"), TestEntity::name);
             Pageable captured = captor.getValue();
@@ -441,10 +439,10 @@ class PaginationMockTest {
         @Test
         @DisplayName("Should parse DESC direction case-insensitively")
         void shouldParseDescDirectionCaseInsensitively() {
-            Page<TestEntity> emptyPage = new PageImpl<>(Collections.emptyList(), PageRequest.of(0, 15), 0);
+            org.springframework.data.domain.Page<TestEntity> emptyPage = new PageImpl<>(Collections.emptyList(), PageRequest.of(0, 15), 0);
             ArgumentCaptor<Pageable> captor = ArgumentCaptor.forClass(Pageable.class);
-            when(specificationExecutor.findAll(isNull(), captor.capture())).thenReturn(emptyPage);
-            Pagination.paginate(specificationExecutor, null,
+            when(specificationExecutor.findAll(any(), captor.capture())).thenReturn(emptyPage);
+            Page.paginate(specificationExecutor, null,
                     0, 15, "name", "DeSc",
                     List.of("id", "name"), TestEntity::name);
             Pageable captured = captor.getValue();
@@ -456,7 +454,7 @@ class PaginationMockTest {
         @Test
         @DisplayName("Should reject invalid sort direction")
         void shouldRejectInvalidSortDirection() {
-            assertThatThrownBy(() -> Pagination.paginate(specificationExecutor, null,
+            assertThatThrownBy(() -> Page.paginate(specificationExecutor, null,
                     0, 15, "name", "sideways",
                     List.of("id", "name"), TestEntity::name))
                     .isInstanceOf(IllegalArgumentException.class)
@@ -466,7 +464,7 @@ class PaginationMockTest {
         @Test
         @DisplayName("Should reject null repository in primitive specification overload")
         void shouldRejectNullRepoInPrimitiveSpec() {
-            assertThatThrownBy(() -> Pagination.paginate(null, null,
+            assertThatThrownBy(() -> Page.paginate(null, null,
                     0, 10, "id", "asc",
                     List.of("id"), TestEntity::id))
                     .isInstanceOf(IllegalArgumentException.class)
@@ -476,7 +474,7 @@ class PaginationMockTest {
         @Test
         @DisplayName("Should reject null mapper in primitive specification overload")
         void shouldRejectNullMapperInPrimitiveSpec() {
-            assertThatThrownBy(() -> Pagination.paginate(specificationExecutor, null,
+            assertThatThrownBy(() -> Page.paginate(specificationExecutor, null,
                     0, 10, "id", "asc",
                     List.of("id"), null))
                     .isInstanceOf(IllegalArgumentException.class)
@@ -486,7 +484,7 @@ class PaginationMockTest {
         @Test
         @DisplayName("Should reject negative page number in primitive specification overload")
         void shouldRejectNegativePageNumberInPrimitiveSpec() {
-            assertThatThrownBy(() -> Pagination.paginate(specificationExecutor, null, -1, 10, "id", "asc", List.of("id"), TestEntity::id))
+            assertThatThrownBy(() -> Page.paginate(specificationExecutor, null, -1, 10, "id", "asc", List.of("id"), TestEntity::id))
                     .isInstanceOf(IllegalArgumentException.class)
                     .hasMessage("Page number must be greater than or equal to 0");
         }
@@ -494,7 +492,7 @@ class PaginationMockTest {
         @Test
         @DisplayName("Should reject under-minimum page size in primitive specification overload")
         void shouldRejectUnderMinimumPageSizeInPrimitiveSpec() {
-            assertThatThrownBy(() -> Pagination.paginate(specificationExecutor, null, 0, 0, "id", "asc", List.of("id"), TestEntity::id))
+            assertThatThrownBy(() -> Page.paginate(specificationExecutor, null, 0, 0, "id", "asc", List.of("id"), TestEntity::id))
                     .isInstanceOf(IllegalArgumentException.class)
                     .hasMessage("Page size must be between 1 and 100");
         }
@@ -502,7 +500,7 @@ class PaginationMockTest {
         @Test
         @DisplayName("Should reject excessive page size in primitive specification overload")
         void shouldRejectExcessivePageSizeInPrimitiveSpec() {
-            assertThatThrownBy(() -> Pagination.paginate(specificationExecutor, null, 0, 101, "id", "asc", List.of("id"), TestEntity::id))
+            assertThatThrownBy(() -> Page.paginate(specificationExecutor, null, 0, 101, "id", "asc", List.of("id"), TestEntity::id))
                     .isInstanceOf(IllegalArgumentException.class)
                     .hasMessage("Page size must be between 1 and 100");
         }
@@ -510,22 +508,22 @@ class PaginationMockTest {
         @Test
         @DisplayName("Should treat blank sortBy as unsorted in primitive specification overload")
         void shouldTreatBlankSortByAsUnsortedInPrimitiveSpec() {
-            Page<TestEntity> emptyPage = new PageImpl<>(Collections.emptyList(), PageRequest.of(0, 10), 0);
+            org.springframework.data.domain.Page<TestEntity> emptyPage = new PageImpl<>(Collections.emptyList(), PageRequest.of(0, 10), 0);
             ArgumentCaptor<Pageable> captor = ArgumentCaptor.forClass(Pageable.class);
-            when(specificationExecutor.findAll(isNull(), captor.capture())).thenReturn(emptyPage);
+            when(specificationExecutor.findAll(any(Specification.class), captor.capture())).thenReturn(emptyPage);
 
-            Pagination.paginate(specificationExecutor, null, 0, 10, "   ", "asc", List.of("id"), TestEntity::id);
+            Page.paginate(specificationExecutor, null, 0, 10, "   ", "asc", List.of("id"), TestEntity::id);
             assertThat(captor.getValue().getSort().isUnsorted()).isTrue();
         }
 
         @Test
         @DisplayName("Should parse ASC direction correctly and case-insensitively in primitive specification overload")
         void shouldParseAscDirectionCorrectly() {
-            Page<TestEntity> emptyPage = new PageImpl<>(Collections.emptyList(), PageRequest.of(0, 10), 0);
+            org.springframework.data.domain.Page<TestEntity> emptyPage = new PageImpl<>(Collections.emptyList(), PageRequest.of(0, 10), 0);
             ArgumentCaptor<Pageable> captor = ArgumentCaptor.forClass(Pageable.class);
-            when(specificationExecutor.findAll(isNull(), captor.capture())).thenReturn(emptyPage);
+            when(specificationExecutor.findAll(any(Specification.class), captor.capture())).thenReturn(emptyPage);
 
-            Pagination.paginate(specificationExecutor, null, 0, 10, "id", "AsC", List.of("id"), TestEntity::id);
+            Page.paginate(specificationExecutor, null, 0, 10, "id", "AsC", List.of("id"), TestEntity::id);
             Sort.Order order = captor.getValue().getSort().getOrderFor("id");
             assertThat(order).isNotNull();
             assertThat(order.getDirection()).isEqualTo(Sort.Direction.ASC);
@@ -534,11 +532,11 @@ class PaginationMockTest {
         @Test
         @DisplayName("Should default to ASC when sortDirection is empty in primitive specification overload")
         void shouldDefaultToAscWhenDirectionEmpty() {
-            Page<TestEntity> emptyPage = new PageImpl<>(Collections.emptyList(), PageRequest.of(0, 10), 0);
+            org.springframework.data.domain.Page<TestEntity> emptyPage = new PageImpl<>(Collections.emptyList(), PageRequest.of(0, 10), 0);
             ArgumentCaptor<Pageable> captor = ArgumentCaptor.forClass(Pageable.class);
-            when(specificationExecutor.findAll(isNull(), captor.capture())).thenReturn(emptyPage);
+            when(specificationExecutor.findAll(any(Specification.class), captor.capture())).thenReturn(emptyPage);
 
-            Pagination.paginate(specificationExecutor, null, 0, 10, "id", "", List.of("id"), TestEntity::id);
+            Page.paginate(specificationExecutor, null, 0, 10, "id", "", List.of("id"), TestEntity::id);
             Sort.Order order = captor.getValue().getSort().getOrderFor("id");
             assertThat(order).isNotNull();
             assertThat(order.getDirection()).isEqualTo(Sort.Direction.ASC);
@@ -553,7 +551,7 @@ class PaginationMockTest {
         @DisplayName("Should correctly compute pagination helper methods and map content")
         void shouldComputeHelperMethods() {
             List<String> items = List.of("One", "Two", "Three");
-            Page<String> page = new PageImpl<>(items, PageRequest.of(1, 3), 10);
+            org.springframework.data.domain.Page<String> page = new PageImpl<>(items, PageRequest.of(1, 3), 10);
             PageResponse<String> response = PageResponse.from(page, String::toUpperCase);
             assertThat(response.contents()).containsExactly("ONE", "TWO", "THREE");
             assertThat(response.currentPage()).isEqualTo(1);
@@ -572,7 +570,7 @@ class PaginationMockTest {
         @DisplayName("Should support PageResponse.from without mapper")
         void shouldSupportFromWithoutMapper() {
             List<String> items = List.of("Alpha", "Beta");
-            Page<String> page = new PageImpl<>(items, PageRequest.of(0, 2), 2);
+            org.springframework.data.domain.Page<String> page = new PageImpl<>(items, PageRequest.of(0, 2), 2);
             PageResponse<String> response = PageResponse.from(page);
             assertThat(response.contents()).containsExactly("Alpha", "Beta");
             assertThat(response.hasNext()).isFalse();
@@ -582,11 +580,11 @@ class PaginationMockTest {
         @Test
         @DisplayName("Should handle empty page correctly")
         void shouldHandleEmptyPage() {
-            PageResponse<String> response = PageResponse.from(Page.empty());
+            PageResponse<String> response = PageResponse.from(org.springframework.data.domain.Page.empty());
             assertThat(response.contents()).isEmpty();
             assertThat(response.currentPage()).isZero();
             assertThat(response.totalElements()).isZero();
-            assertThat(response.totalPages()).isEqualTo(Page.empty().getTotalPages());
+            assertThat(response.totalPages()).isEqualTo(org.springframework.data.domain.Page.empty().getTotalPages());
             assertThat(response.isFirstPage()).isTrue();
             assertThat(response.isLastPage()).isTrue();
             assertThat(response.hasNext()).isFalse();
@@ -601,7 +599,7 @@ class PaginationMockTest {
             assertThatThrownBy(() -> PageResponse.from(null))
                     .isInstanceOf(IllegalArgumentException.class)
                     .hasMessage("Page must not be null");
-            Page<String> page = new PageImpl<>(List.of("A"));
+            org.springframework.data.domain.Page<String> page = new PageImpl<>(List.of("A"));
             assertThatThrownBy(() -> PageResponse.from(page, null))
                     .isInstanceOf(IllegalArgumentException.class)
                     .hasMessage("Mapper must not be null");

@@ -1,6 +1,6 @@
 package io.github.pranit.page;
 
-import io.github.pranit.page.service.Pagination;
+import io.github.pranit.page.service.Page;
 import io.github.pranit.page.wrapper.PageResponse;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -23,9 +23,9 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-class PaginationTest {
+class PageTest {
 
-    private static final Logger log = LoggerFactory.getLogger(PaginationTest.class);
+    private static final Logger log = LoggerFactory.getLogger(PageTest.class);
 
     private static final String RESET = "\u001B[0m";
     private static final String BOLD = "\u001B[1m";
@@ -73,7 +73,7 @@ class PaginationTest {
         Set<String> allowedSorts = Set.of("id", "username", "email");
         Pageable requestPage0 = PageRequest
                 .of(0, 5, Sort.by(Sort.Direction.ASC, "username"));
-        PageResponse<UserResponseDto> apiResponsePage0 = Pagination
+        PageResponse<UserResponseDto> apiResponsePage0 = Page
                 .paginate(userRepository, requestPage0, allowedSorts,
                         entity -> UserResponseDto.builder()
                                 .id(entity.id())
@@ -88,7 +88,7 @@ class PaginationTest {
 
         Pageable requestPage1 = PageRequest
                 .of(1, 5, Sort.by(Sort.Direction.ASC, "username"));
-        PageResponse<UserResponseDto> apiResponsePage1 = Pagination
+        PageResponse<UserResponseDto> apiResponsePage1 = Page
                 .paginate(userRepository, requestPage1, allowedSorts,
                         entity -> UserResponseDto.builder()
                                 .id(entity.id())
@@ -103,7 +103,7 @@ class PaginationTest {
 
         Pageable requestPageLast = PageRequest
                 .of(4, 5, Sort.by(Sort.Direction.ASC, "username"));
-        PageResponse<UserResponseDto> apiResponsePageLast = Pagination
+        PageResponse<UserResponseDto> apiResponsePageLast = Page
                 .paginate(userRepository, requestPageLast, allowedSorts,
                         entity -> UserResponseDto.builder()
                                 .id(entity.id())
